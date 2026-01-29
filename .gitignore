@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+*.pyo
+*.pyd
+
+# Logs
+*.log
+
+# Uploaded files
+uploads/
+
+# Database
+*.db
+
+# OS files
+.DS_Store
