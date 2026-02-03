@@ -1,7 +1,7 @@
 from celery_app import celery
 from db import SessionLocal
 from model import AnalysisResult
-from utils import compute_score
+from scoring import compute_score
 import subprocess, json, os
 
 @celery.task(name="tasks.analyze_file_task")
@@ -23,8 +23,8 @@ def analyze_file_task(file_path, file_hash, file_name):
         lines = result.stdout.strip().split("\n")
         strelka_json = [json.loads(line) for line in lines if line.strip()]
 
-        # Apply scoring logic
-        score, verdict, reasons = compute_score(strelka_json[0])
+        # Apply scoring logic  
+        score, verdict, reasons = compute_score(strelka_json,file_path)
 
         # Save to PostgreSQL
         db = SessionLocal()
