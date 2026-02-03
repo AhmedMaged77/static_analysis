@@ -190,8 +190,9 @@ static_analysis/
 ├─ tasks.py           # Celery tasks definitions
 ├─ db.py              # SQLAlchemy engine and session setup
 ├─ model.py           # SQLAlchemy database models
-├─ utils.py           # Helper functions (SHA256, scoring, etc.)
-├─ uploads/           # Directory for temp storage of uploaded files
+├─ utils.py           # Helper functions (SHA256, etc.)
+├─ scoring.py         # scoring logic
+├─ uploads/           # Directory for temp storage of uploaded files 
 ├─ requirements.txt   # Project dependencies
 └─ README.md          # Documentation
 ```
