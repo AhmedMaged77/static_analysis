@@ -67,6 +67,7 @@ Verify Strelka is working by running a test scan:
 * `celery[redis]`
 * `pydantic`
 * `python-multipart`
+* `requests`
 
 ---
 
