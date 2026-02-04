@@ -5,8 +5,8 @@ from utils import vt_lookup
 def analyze_file_type(
     file_json: dict,
     depth: int,
-    extension: str | None,
-    parent_extension: str | None = None
+    extension: str,
+    parent_extension: str = None
 ) -> dict:
 
     # Canonical definitions
