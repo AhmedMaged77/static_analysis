@@ -166,7 +166,16 @@ def check_automated_files(creator):
 
     return score , reasons
 
+def check_yara(yara_out):
+   matches = yara_out.get("matches", [])
+   score = 0
+   reasons = []
+   if matches:
+    for rule in matches:
+        score += 30
+        reasons.append(f"yara rule fired: {rule}")
 
+   return score , reasons
 
 def compute_score(strelka_json,file_path):
   
@@ -239,6 +248,19 @@ def compute_score(strelka_json,file_path):
        for u in r:
           reasons.append(u)
 
+    if jsn.get("scan",{}).get("yara",{}):
+       s, r = check_yara(jsn.get("scan",{}).get("yara",{}))
+       score += s
+       if r:
+        for u in r:
+            reasons.append(u)
+    
+    if jsn.get("pdf",{}).get("yara",{}):
+       s, r = check_yara(jsn.get("pdf",{}).get("yara",{}))
+       score += s
+       if r:
+        for u in r:
+            reasons.append(u)
     
 
   if score >= 50 :
