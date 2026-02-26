@@ -6,3 +6,10 @@ sqlalchemy
 psycopg2-binary
 python-multipart
 requests
+python-dotenv
+python-whois
+beautifulsoup4
+dnspython
+tldextract
+validators
+httpx

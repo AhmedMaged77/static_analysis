@@ -3,6 +3,11 @@ from db import SessionLocal
 from model import AnalysisResult
 from scoring import compute_score
 import subprocess, json, os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+Strelka_Dir = os.getenv("Strelka_Dir")
 
 @celery.task(name="tasks.analyze_file_task")
 def analyze_file_task(file_path, file_hash, file_name):
@@ -15,7 +20,7 @@ def analyze_file_task(file_path, file_hash, file_name):
     print(file_path)
     try:
         strelka_cmd = [
-            "/home/ahmed/strelka/strelka-oneshot",  # Replace with your Strelka path
+            Strelka_Dir,  
             "-f", file_path,
             "-l", "-"
         ]

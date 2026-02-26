@@ -16,3 +16,6 @@ uploads/
 
 # OS files
 .DS_Store
+
+# API keys
+.env

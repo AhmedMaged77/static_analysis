@@ -1,11 +1,14 @@
 # Static Analysis Automation with FastAPI, Celery, and Strelka
 
-This project provides an automated static analysis framework for files using [Strelka](https://github.com/target/strelka). It queues file analysis tasks with Celery, stores results in a PostgreSQL database, and exposes a FastAPI endpoint for uploading files and retrieving results.
+This project provides an automated static analysis framework for **files** and **URLs** using [Strelka](https://github.com/target/strelka) and multi-layer security heuristics. It queues file analysis tasks with Celery, stores results in a PostgreSQL database, and exposes FastAPI endpoints for uploading files, submitting URLs, and retrieving results.
 
 ### Key Features
+* **File Analysis:** Scan uploaded files with Strelka, ClamAV, YARA, entropy checks, and IOC extraction.
+* **URL Analysis:** Multi-layer URL inspection including structure, domain WHOIS/DNS, HTML content, and threat intelligence.
 * **Deduplication:** Previously analyzed files return results immediately (based on SHA256).
 * **Queued Analysis:** Heavy files are processed asynchronously using Celery and RabbitMQ.
-* **Scoring Logic:** Assigns a maliciousness score, verdict, and specific reasons based on Strelka analysis.
+* **Scoring Logic:** Assigns a maliciousness score, verdict, and specific reasons based on analysis results.
+* **Explainable Verdicts:** Every triggered indicator is returned with a human-readable explanation.
 
 ---
 
@@ -68,6 +71,13 @@ Verify Strelka is working by running a test scan:
 * `pydantic`
 * `python-multipart`
 * `requests`
+* `python-dotenv`
+* `python-whois` (WHOIS lookups for URL analysis)
+* `beautifulsoup4` (HTML content parsing)
+* `dnspython` (DNS record inspection)
+* `tldextract` (TLD and domain extraction)
+* `validators` (URL input validation)
+* `httpx` (async HTTP client for fetching URLs)
 
 ---
 
@@ -149,10 +159,10 @@ uvicorn app:app --reload --port 8000
 ---
 
 ## 5. API Endpoints
-Go to http http://127.0.0.1:8000/docs and see the two endpoints
-### Upload File
-Submit a file for analysis.
+Go to http http://127.0.0.1:8000/docs and see the endpoints.
 
+### Upload File (`POST /upload`)
+Submit a file for static analysis via Strelka.
 
 **Example Response (Queued):**
 ```json
@@ -163,8 +173,8 @@ Submit a file for analysis.
 }
 ```
 
-### Check Result
-Retrieve the analysis status and report.
+### Check File Result (`GET /status/{task_id}`)
+Retrieve the file analysis status and report.
 
 **Example Response (Success):**
 ```json
@@ -176,6 +186,51 @@ Retrieve the analysis status and report.
       "verdict": "benign",
       "reasons": ["None"]
   }
+}
+```
+
+### Analyze URL (`POST /analyze-url`)
+Submit a URL for multi-layer security analysis. The analysis is performed synchronously and returns results immediately.
+
+**Request Body:**
+```json
+{
+  "url": "https://example.com"
+}
+```
+
+**Analysis Pipeline:**
+1. **URL Structure Analysis** — length, suspicious characters, IP-based URLs, shorteners, TLD, homograph detection
+2. **Domain Intelligence** — WHOIS age, registrar, hidden WHOIS, DNS records
+3. **Content Analysis** — hidden iframes, obfuscated JS, login forms, phishing keywords, redirect count
+4. **Threat Intelligence** — VirusTotal URL and domain lookups
+5. **Risk Scoring** — weighted aggregation with explainable verdict
+
+**Verdict Thresholds:**
+| Score       | Verdict      |
+|-------------|-------------|
+| < 30        | SAFE        |
+| 30 – 60     | SUSPICIOUS  |
+| > 60        | MALICIOUS   |
+
+**Example Response:**
+```json
+{
+  "url": "http://paypa1-login.tk/verify",
+  "domain": "paypa1-login.tk",
+  "score": 85,
+  "verdict": "MALICIOUS",
+  "reasons": [
+    "Suspicious TLD: .tk",
+    "Possible homograph / look-alike of 'paypal'",
+    "URL does not use HTTPS",
+    "Very new domain (registered 5 days ago)",
+    "Page contains a login/password form (possible phishing)",
+    "Suspicious keywords: verify your account, urgent"
+  ],
+  "final_url": "http://paypa1-login.tk/verify",
+  "http_status": 200,
+  "redirect_count": 0
 }
 ```
 
