@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f ../strelka/build/docker-compose-no-build.yaml --provider kubernetes convert
+    kompose.version: 1.38.0 (a8f5d1cbd)
+  labels:
+    io.kompose.service: ui
+  name: ui
+  namespace: strelka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: ui
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f ../strelka/build/docker-compose-no-build.yaml --provider kubernetes convert
+        kompose.version: 1.38.0 (a8f5d1cbd)
+      labels:
+        io.kompose.service: ui
+    spec:
+      containers:
+        - env:
+            - name: DATABASE_HOST
+              value: postgresdb
+            - name: DATABASE_NAME
+              value: strelka_ui
+            - name: DATABASE_PASSWORD
+              value: postgres
+            - name: DATABASE_USERNAME
+              value: postgres
+            - name: STRELKA_HOST
+              value: frontend
+          image: target/strelka-ui:latest
+          name: ui
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose -f ../strelka/build/docker-compose-no-build.yaml --provider kubernetes convert
+    kompose.version: 1.38.0 (a8f5d1cbd)
+  labels:
+    io.kompose.service: ui
+  name: ui
+  namespace: strelka
+spec:
+  ports:
+    - name: "9980"
+      port: 9980
+      targetPort: 8080
+  selector:
+    io.kompose.service: ui

@@ -1,0 +1,243 @@
+# 1. NAMESPACE DEFINITION
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: analysis-api
+  labels:
+    name: analysis-api
+    environment: development
+
+---
+# 2. SECRETS & CONFIGMAPS (Security & Config Decoupling)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: analysis-secrets
+  namespace: analysis-api
+type: Opaque
+data:
+  VT_API_KEY: eW91ci1hY3R1YWwtdmlydXN0b3RhbC1rZXk=
+  RABBITMQ_USER: Z3Vlc3Q=
+  RABBITMQ_PASS: Z3Vlc3Q=
+  POSTGRES_USER: c3RyZWxrYQ==
+  POSTGRES_PASSWORD: cGFzc3dvcmQ=
+  broker_url: YW1xcDovL2d1ZXN0Omd1ZXN0QHJhYmJpdG1xLmFuYWx5c2lzLWFwaS5zdmMuY2x1c3Rlci5sb2NhbDo1NjcyLy8=
+  result_backend: ZGIrcG9zdGdyZXNxbDovL3N0cmVsa2E6cGFzc3dvcmRAcG9zdGdyZXMuYW5hbHlzaXMtYXBpLnN2Yy5jbHVzdGVyLmxvY2FsL2FuYWx5c2lzX2Ri
+  DATABASE_URL: cG9zdGdyZXNxbDovL3N0cmVsa2E6cGFzc3dvcmRAcG9zdGdyZXMuYW5hbHlzaXMtYXBpLnN2Yy5jbHVzdGVyLmxvY2FsOjU0MzIvYW5hbHlzaXNfZGI=
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: analysis-config
+  namespace: analysis-api
+data:
+  Strelka_Dir: "./strelka-oneshot"
+  POSTGRES_DB: "analysis_db"
+  POSTGRES_HOST: "postgres.analysis-api.svc.cluster.local"
+  RABBITMQ_HOST: "rabbitmq.analysis-api.svc.cluster.local"
+  # Endpoints for external namespaces
+  AI_MODEL_URL: "http://header-nlp.ai-model-api.svc.cluster.local:8000"
+  SANDBOX_URL: "http://strelka.sandbox.svc.cluster.local:5000"
+
+---
+# 3. POSTGRESQL (State Storage)
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: analysis-api
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: analysis-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - configMapRef:
+                name: analysis-config
+            - secretRef:
+                name: analysis-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: analysis-api
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+
+---
+# 4. RABBITMQ (Message Broker)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rabbitmq
+  namespace: analysis-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rabbitmq
+  template:
+    metadata:
+      labels:
+        app: rabbitmq
+    spec:
+      containers:
+        - name: rabbitmq
+          image: rabbitmq:3.12-management-alpine
+          ports:
+            - containerPort: 5672  # AMQP
+            - containerPort: 15672 # Management UI
+          envFrom:
+            - secretRef:
+                name: analysis-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rabbitmq
+  namespace: analysis-api
+spec:
+  selector:
+    app: rabbitmq
+  ports:
+    - name: amqp
+      port: 5672
+      targetPort: 5672
+    - name: management
+      port: 15672
+      targetPort: 15672
+
+---
+# 5. ANALYSIS ORCHESTRATOR (FastAPI)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+  namespace: analysis-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orchestrator
+  template:
+    metadata:
+      labels:
+        app: orchestrator
+    spec:
+      containers:
+        - name: orchestrator
+          image: omarhussein2111/static_analysis_app:1.2
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: analysis-config
+            - secretRef:
+                name: analysis-secrets
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator
+  namespace: analysis-api
+spec:
+  selector:
+    app: orchestrator
+  ports:
+    - port: 8000
+      targetPort: 8000
+
+---
+# 6. CELERY WORKERS (Task Executors)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+  namespace: analysis-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+    spec:
+      containers:
+        - name: celery-worker
+          image: omarhussein2111/static_analysis_app:1.2
+          command: ["celery"]
+          args: ["-A", "celery_app", "worker", "--loglevel=info"]
+          envFrom:
+            - configMapRef:
+                name: analysis-config
+            - secretRef:
+                name: analysis-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "300m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"

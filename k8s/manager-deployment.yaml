@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f ../strelka/build/docker-compose-no-build.yaml --provider kubernetes convert
+    kompose.version: 1.38.0 (a8f5d1cbd)
+  labels:
+    io.kompose.service: manager
+  name: manager
+  namespace: strelka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: manager
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f ../strelka/build/docker-compose-no-build.yaml --provider kubernetes convert
+        kompose.version: 1.38.0 (a8f5d1cbd)
+      labels:
+        io.kompose.service: manager
+    spec:
+      containers:
+        - args:
+            - strelka-manager
+          image: target/strelka-manager:latest
+          name: manager
+          volumeMounts:
+            - mountPath: /etc/strelka
+              name: manager-cm0
+              readOnly: true
+      restartPolicy: Always
+      volumes:
+        - configMap:
+            name: manager-cm0
+          name: manager-cm0

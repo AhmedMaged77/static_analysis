@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f ../strelka/build/docker-compose-no-build.yaml --provider kubernetes convert
+    kompose.version: 1.38.0 (a8f5d1cbd)
+  labels:
+    io.kompose.service: postgresdb
+  name: postgresdb
+  namespace: strelka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: postgresdb
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f ../strelka/build/docker-compose-no-build.yaml --provider kubernetes convert
+        kompose.version: 1.38.0 (a8f5d1cbd)
+      labels:
+        io.kompose.service: postgresdb
+    spec:
+      containers:
+        - env:
+            - name: POSTGRES_DB
+              value: strelka_ui
+            - name: POSTGRES_PASSWORD
+              value: postgres
+            - name: POSTGRES_USERNAME
+              value: postgres
+          image: docker.io/postgres:15.14
+          name: postgresdb
+      restartPolicy: Always

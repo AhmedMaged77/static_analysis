@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f ../strelka/build/docker-compose-no-build.yaml --provider kubernetes convert
+    kompose.version: 1.38.0 (a8f5d1cbd)
+  labels:
+    io.kompose.service: coordinator
+  name: coordinator
+  namespace: strelka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: coordinator
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f ../strelka/build/docker-compose-no-build.yaml --provider kubernetes convert
+        kompose.version: 1.38.0 (a8f5d1cbd)
+      labels:
+        io.kompose.service: coordinator
+    spec:
+      containers:
+        - args:
+            - redis-server
+            - --save
+            - ""
+            - --appendonly
+            - "no"
+          image: redis:alpine
+          name: coordinator
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: coordinator
+  namespace: strelka
+spec:
+  selector:
+    io.kompose.service: coordinator
+  ports:
+    - port: 6379
+      targetPort: 6379

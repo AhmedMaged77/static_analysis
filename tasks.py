@@ -22,7 +22,7 @@ def analyze_file_task(file_path, file_hash, file_name):
         strelka_cmd = [
             Strelka_Dir,  
             "-f", file_path,
-            "-s", "172.18.0.1:57314",
+            "-s", "frontend.strelka.svc.cluster.local:57314",
             "-l", "-"
         ]
         result = subprocess.run(strelka_cmd, capture_output=True, text=True, check=True)

@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose -f ../strelka/build/docker-compose-no-build.yaml --provider kubernetes convert
+    kompose.version: 1.38.0 (a8f5d1cbd)
+  labels:
+    io.kompose.service: gatekeeper
+  name: gatekeeper
+  namespace: strelka
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: gatekeeper
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose -f ../strelka/build/docker-compose-no-build.yaml --provider kubernetes convert
+        kompose.version: 1.38.0 (a8f5d1cbd)
+      labels:
+        io.kompose.service: gatekeeper
+    spec:
+      containers:
+        - args:
+            - redis-server
+            - --save
+            - ""
+            - --appendonly
+            - "no"
+            - --maxmemory-policy
+            - allkeys-lru
+          image: redis:alpine
+          name: gatekeeper
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gatekeeper
+  namespace: strelka
+spec:
+  selector:
+    io.kompose.service: gatekeeper
+  ports:
+    - port: 6379
+      targetPort: 6379

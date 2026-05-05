@@ -16,6 +16,8 @@ build/
 # Docker
 Dockerfile*
 docker-compose*
+.pytest_cache
+.dockerignore
 
 # Ignore local config files
 *.env
