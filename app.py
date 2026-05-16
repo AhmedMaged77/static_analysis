@@ -6,6 +6,7 @@ import model
 from db import Base, engine
 from file_routes import router as file_router
 from url_routes import router as url_router
+from analyze_routes import router as analyze_router
 
 
 @asynccontextmanager
@@ -23,3 +24,4 @@ app = FastAPI(
 
 app.include_router(file_router)
 app.include_router(url_router)
+app.include_router(analyze_router)

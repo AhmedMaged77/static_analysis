@@ -13,3 +13,13 @@ dnspython
 tldextract
 validators
 httpx
+python-magic
+yara-python
+clamd
+PyExifTool
+pefile
+pikepdf
+ssdeep
+oletools
+rarfile
+py7zr
