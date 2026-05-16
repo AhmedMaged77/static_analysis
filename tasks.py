@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 Strelka_Dir = os.getenv("Strelka_Dir")
+Strelka_Server = os.getenv("Strelka_Server")
 
 @celery.task(name="tasks.analyze_file_task")
 def analyze_file_task(file_path, file_hash, file_name):
@@ -22,7 +23,7 @@ def analyze_file_task(file_path, file_hash, file_name):
         strelka_cmd = [
             Strelka_Dir,  
             "-f", file_path,
-            "-s", "172.18.0.1:57314",
+            "-s", Strelka_Server,
             "-l", "-"
         ]
         result = subprocess.run(strelka_cmd, capture_output=True, text=True, check=True)
