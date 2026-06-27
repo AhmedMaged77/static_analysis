@@ -50,7 +50,7 @@ spec:
               unzip *.zip
               pwd
               whoami
-              mv content/drive/MyDrive/YARA/rules/* .
+              mv backend/* .
               ls -la
               rm -rf content
               rm *.zip
