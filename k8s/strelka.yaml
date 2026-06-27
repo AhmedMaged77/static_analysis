@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: 'https://github.com/AhmedMaged77/static_analysis.git'
+    repoURL: 'https://github.com/Eng-Omar-Hussein/static_analysis2.git'
     targetRevision: HEAD
     path: strelka
   destination:
