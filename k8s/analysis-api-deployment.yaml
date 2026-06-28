@@ -28,6 +28,7 @@ metadata:
   name: postgres-pvc
   namespace: analysis-api
 spec:
+  storageClassName: gp2
   accessModes:
     - ReadWriteOnce
   resources:

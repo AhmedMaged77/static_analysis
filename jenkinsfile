@@ -59,7 +59,7 @@ pipeline {
         stage('SAST - Semgrep') {
             steps {
                 sh '''
-                    pip install semgrep --break-system-packages || true
+                    pip install semgrep  || true
                     semgrep --config=p/owasp-top-ten --config=p/security-audit \
                         --json --output=semgrep-report.json . || true
                 '''
