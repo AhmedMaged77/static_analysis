@@ -36,10 +36,9 @@ pipeline {
         stage('Build Docker Image ') {
             steps {
                 sh '''
-                    sudo apt-get update && apt-get install -y golang-go || true
                     git clone https://github.com/target/strelka.git || true
                     cd strelka/src/go/cmd/strelka-oneshot
-                    go build -o strelka-oneshot
+                    docker run --rm -v "$PWD":/go/src/github.com/target/strelka golang:1.20 bash -c "cd /go/src/github.com/target/strelka/src/go/cmd/strelka-oneshot && go build -o strelka-oneshot"
                     mv strelka-oneshot ../../../../../
                     cd ../../../../../
                     rm -r strelka
