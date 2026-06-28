@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: strelka-argo
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/Eng-Omar-Hussein/static_analysis2.git'
+    targetRevision: HEAD
+    path: strelka
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: strelka
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

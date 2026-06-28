@@ -8,24 +8,6 @@ metadata:
     environment: development
 
 ---
-# 2. SECRETS & CONFIGMAPS (Security & Config Decoupling)
-apiVersion: v1
-kind: Secret
-metadata:
-  name: analysis-secrets
-  namespace: analysis-api
-type: Opaque
-data:
-  VT_API_KEY: eW91ci1hY3R1YWwtdmlydXN0b3RhbC1rZXk=
-  RABBITMQ_USER: Z3Vlc3Q=
-  RABBITMQ_PASS: Z3Vlc3Q=
-  POSTGRES_USER: c3RyZWxrYQ==
-  POSTGRES_PASSWORD: cGFzc3dvcmQ=
-  broker_url: YW1xcDovL2d1ZXN0Omd1ZXN0QHJhYmJpdG1xLmFuYWx5c2lzLWFwaS5zdmMuY2x1c3Rlci5sb2NhbDo1NjcyLy8=
-  result_backend: ZGIrcG9zdGdyZXNxbDovL3N0cmVsa2E6cGFzc3dvcmRAcG9zdGdyZXMuYW5hbHlzaXMtYXBpLnN2Yy5jbHVzdGVyLmxvY2FsL2FuYWx5c2lzX2Ri
-  DATABASE_URL: cG9zdGdyZXNxbDovL3N0cmVsa2E6cGFzc3dvcmRAcG9zdGdyZXMuYW5hbHlzaXMtYXBpLnN2Yy5jbHVzdGVyLmxvY2FsOjU0MzIvYW5hbHlzaXNfZGI=
-
----
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -33,12 +15,10 @@ metadata:
   namespace: analysis-api
 data:
   Strelka_Dir: "./strelka-oneshot"
+  Strelka_Server: "http://strelka.sandbox.svc.cluster.local:5000"
   POSTGRES_DB: "analysis_db"
   POSTGRES_HOST: "postgres.analysis-api.svc.cluster.local"
   RABBITMQ_HOST: "rabbitmq.analysis-api.svc.cluster.local"
-  # Endpoints for external namespaces
-  AI_MODEL_URL: "http://header-nlp.ai-model-api.svc.cluster.local:8000"
-  SANDBOX_URL: "http://strelka.sandbox.svc.cluster.local:5000"
 
 ---
 # 3. POSTGRESQL (State Storage)
@@ -178,7 +158,7 @@ spec:
     spec:
       containers:
         - name: orchestrator
-          image: omarhussein2111/static_analysis_app:1.2
+          image: omarhussein2111/analysis-api:7-b3aaf22
           ports:
             - containerPort: 8000
           envFrom:
@@ -226,7 +206,7 @@ spec:
     spec:
       containers:
         - name: celery-worker
-          image: omarhussein2111/static_analysis_app:1.2
+          image: omarhussein2111/analysis-api:7-b3aaf22
           command: ["celery"]
           args: ["-A", "celery_app", "worker", "--loglevel=info"]
           envFrom:

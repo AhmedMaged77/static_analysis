@@ -15,7 +15,6 @@ import clamd  # pip install clamd
 import exiftool  # pip install PyExifTool
 import pefile  # pip install pefile
 import pikepdf  # pip install pikepdf
-import ssdeep  # pip install ssdeep
 from oletools.olevba import VBA_Parser  # pip install oletools
 from oletools.oleid import OleID
 

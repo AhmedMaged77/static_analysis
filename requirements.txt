@@ -19,7 +19,7 @@ clamd
 PyExifTool
 pefile
 pikepdf
-ssdeep
 oletools
 rarfile
 py7zr
+python-magic
