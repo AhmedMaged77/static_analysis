@@ -121,31 +121,32 @@ pipeline {
             }
         }
 
-        stage('Scan - Trivy (Image + FS + SBOM)') {
-            steps {
-                sh '''
-                    . venv/bin/activate
-                    pip install --upgrade pip
-                    pip install trivy || true
-                    trivy fs --format json --output trivy-fs-report.json . || true
-                    trivy image --format json --output trivy-image-report.json ${DOCKERHUB_REPO}:${IMAGE_TAG} || true
-                    trivy sbom --format json --output trivy-sbom-report.json sbom.json || true
-                '''
-            }
-            post {
-                always {
-                    archiveArtifacts artifacts: 'trivy-*-report.json', allowEmptyArchive: true
-                }
-            }
-        }
-
-       stage('Push Image to DockerHub') {
+        stage('Push Image to DockerHub') {
             steps {
                 sh '''
                     echo "$DOCKERHUB_CREDS_PSW" | docker login -u "$DOCKERHUB_CREDS_USR" --password-stdin
                     docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
                     docker push ${DOCKERHUB_REPO}:latest
                 '''
+            }
+        }
+        
+        stage('Scan - Trivy (Image + FS + SBOM)') {
+            steps {
+                sh '''
+                    docker run --rm -v "$PWD":/repo aquasec/trivy:latest --version
+                    docker run --rm -v "$PWD":/repo aquasec/trivy:latest \
+                        fs --format json --output trivy-fs-report.json . || true
+                    docker run --rm -v "$PWD":/repo aquasec/trivy:latest \
+                        image --format json --output trivy-image-report.json ${DOCKERHUB_REPO}:${IMAGE_TAG} || true
+                    docker run --rm -v "$PWD":/repo aquasec/trivy:latest \
+                        sbom --format json --output trivy-sbom-report.json sbom.json || true
+                '''
+            }
+            post {
+                always {
+                    archiveArtifacts artifacts: 'trivy-*-report.json', allowEmptyArchive: true
+                }
             }
         }
 
