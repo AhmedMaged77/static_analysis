@@ -15,7 +15,7 @@ metadata:
   namespace: analysis-api
 data:
   Strelka_Dir: "./strelka-oneshot/strelka-oneshot"
-  Strelka_Server: "http://strelka.sandbox.svc.cluster.local:5000"
+  Strelka_Server: "http://frontend.strelka.svc.cluster.local:57314"
   POSTGRES_DB: "analysis_db"
   POSTGRES_HOST: "postgres.analysis-api.svc.cluster.local"
   RABBITMQ_HOST: "rabbitmq.analysis-api.svc.cluster.local"
