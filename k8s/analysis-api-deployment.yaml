@@ -181,7 +181,7 @@ spec:
       volumes:
         - name: shared-uploads
           hostPath:
-            path: /app/uploads
+            path: /tmp/app/uploads
             type: DirectoryorCreate
 
 ---
@@ -238,5 +238,5 @@ spec:
       volumes:
         - name: shared-uploads
           hostPath:
-            path: /app/uploads
+            path: /tmp/app/uploads
             type: DirectoryorCreate
