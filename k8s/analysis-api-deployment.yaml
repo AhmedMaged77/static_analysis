@@ -29,7 +29,7 @@ metadata:
 spec:
   storageClassName: gp2
   accessModes:
-    - ReadWriteMany  # Critical: Allows multiple pods to read/write simultaneously
+    - ReadWriteOnce
   resources:
     requests:
       storage: 2Gi
