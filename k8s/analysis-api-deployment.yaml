@@ -14,7 +14,7 @@ metadata:
   name: analysis-config
   namespace: analysis-api
 data:
-  Strelka_Dir: "./strelka-oneshot"
+  Strelka_Dir: "./strelka-oneshot/strelka-oneshot"
   Strelka_Server: "http://strelka.sandbox.svc.cluster.local:5000"
   POSTGRES_DB: "analysis_db"
   POSTGRES_HOST: "postgres.analysis-api.svc.cluster.local"
