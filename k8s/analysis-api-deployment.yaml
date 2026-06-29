@@ -160,7 +160,7 @@ spec:
     spec:
       containers:
         - name: orchestrator
-          image: omarhussein2111/analysis-api:8-abdad91
+          image: omarhussein2111/analysis-api:4-5b33e25
           ports:
             - containerPort: 8000
           envFrom:
@@ -210,7 +210,7 @@ spec:
     spec:
       containers:
         - name: celery-worker
-          image: omarhussein2111/analysis-api:8-abdad91
+          image: omarhussein2111/analysis-api:4-5b33e25
           command: ["celery"]
           args: ["-A", "celery_app", "worker", "--loglevel=info"]
           envFrom:
