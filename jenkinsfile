@@ -6,13 +6,13 @@ pipeline {
         DOCKERHUB_REPO     = "omarhussein2111/analysis-api"
         GITOPS_REPO        = "git@github.com:Eng-Omar-Hussein/static_analysis2.git"
         GITOPS_DIR         = "k8s"
-        DEFECTDOJO_URL     = "http://34.204.45.80:8080"
-        DTRACK_URL         = "http://34.204.45.80:8081"
+        DEFECTDOJO_URL     = "http://32.199.177.221:8080"
+        DTRACK_URL         = "http://32.199.177.221:8081"
         DTRACK_PROJECT_ID  = credentials('dtrack-project-id')
         DOCKERHUB_CREDS    = credentials('dockerhub-creds')
         DEFECTDOJO_TOKEN   = credentials('defectdojo-api-token')
         DTRACK_API_KEY     = credentials('dtrack-api-key')
-        EMAIL_RECIPIENTS   = "omarhussein2111@gmail.com"
+        EMAIL_RECIPIENTS   = "ahmedmaged808511@gmail.com"
         ZAP_TARGET_URL     = "http://localhost:8086"
     }
 
@@ -50,6 +50,8 @@ pipeline {
         stage('Install Deps') {
             steps {
                 sh '''
+                    pip install --upgrade pip
+                    apt-get update && apt-get install -y python3-venv
                     python3 -m venv venv
                     . venv/bin/activate
                     pip install -r requirements.txt
@@ -317,24 +319,29 @@ pipeline {
             }
         }
 
+        stage("Send Email") {
+            steps {
+                emailext(
+                    subject: "[CI Security] ${APP_NAME} build #${BUILD_NUMBER} - ${currentBuild.currentResult}",
+                    body: """
+                        Pipeline: ${JOB_NAME} #${BUILD_NUMBER}
+                        Image: ${DOCKERHUB_REPO}:${IMAGE_TAG}
+                        Status: ${currentBuild.currentResult}
+
+                        Reports: DefectDojo, Dependency-Track, and Jenkins artifacts.
+                        See: ${BUILD_URL}
+                        See also: ${DEFECTDOJO_URL}/engagement/${env.DD_ENGAGEMENT_ID}/
+                        See also: ${DTRACK_URL}/project/${DTRACK_PROJECT_ID}/
+                    """,
+                    to: "${EMAIL_RECIPIENTS}",
+                    attachmentsPattern: 'semgrep-report.json,bandit-report.json,gitleaks-report.json,trivy-*-report.json,zap-report.html,sbom.json'
+                )
+            }
+        }
+
     }
 
     post {
-        success {
-            emailext(
-                subject: "[CI Security] ${APP_NAME} build #${BUILD_NUMBER} - ${currentBuild.currentResult}",
-                body: """
-                    Pipeline: ${JOB_NAME} #${BUILD_NUMBER}
-                    Image: ${DOCKERHUB_REPO}:${IMAGE_TAG}
-                    Status: ${currentBuild.currentResult}
-
-                    Reports: DefectDojo, Dependency-Track, and Jenkins artifacts.
-                    See: ${BUILD_URL}
-                """,
-                to: "${EMAIL_RECIPIENTS}",
-                attachmentsPattern: 'semgrep-report.json,bandit-report.json,gitleaks-report.json,trivy-*-report.json,zap-report.html,sbom.json'
-            )
-        }
         always {
             sh 'docker logout || true'
             cleanWs()
