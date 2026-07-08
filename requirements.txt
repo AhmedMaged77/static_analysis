@@ -23,3 +23,4 @@ oletools
 rarfile
 py7zr
 python-magic
+pydantic

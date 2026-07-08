@@ -6,14 +6,14 @@ pipeline {
         DOCKERHUB_REPO     = "omarhussein2111/analysis-api"
         GITOPS_REPO        = "git@github.com:Eng-Omar-Hussein/static_analysis2.git"
         GITOPS_DIR         = "k8s"
-        DEFECTDOJO_URL     = "http://54.164.24.188:8080"
-        DTRACK_URL         = "http://54.164.24.188:8081"
+        DEFECTDOJO_URL     = "http://13.221.19.95:8080"
+        DTRACK_URL         = "http://13.221.19.95:8081"
         DTRACK_PROJECT_ID  = credentials('dtrack-project-id')
         DOCKERHUB_CREDS    = credentials('dockerhub-creds')
         DEFECTDOJO_TOKEN   = credentials('defectdojo-api-token')
         DTRACK_API_KEY     = credentials('dtrack-api-key')
-        EMAIL_RECIPIENTS   = "omarhussein2111@gmail.com"
-        ZAP_TARGET_URL     = "http://localhost:8000"
+        EMAIL_RECIPIENTS   = "ahmedmaged808511@gmail.com"
+        ZAP_TARGET_URL     = "http://localhost:8086"
     }
 
     options {
@@ -36,6 +36,7 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
+                    rm -r strelka || true
                     git clone https://github.com/target/strelka.git || true
                     docker run --rm -v "$PWD":/target golang:1.25 bash -c "cd /target/strelka/src/go/cmd/strelka-oneshot && go build -buildvcs=false -o strelka-oneshot"
                     mv strelka/src/go/cmd/strelka-oneshot .
@@ -49,6 +50,8 @@ pipeline {
         stage('Install Deps') {
             steps {
                 sh '''
+                    pip install --upgrade pip
+                    apt install -y python3.10-venv || true
                     python3 -m venv venv
                     . venv/bin/activate
                     pip install -r requirements.txt
@@ -59,7 +62,7 @@ pipeline {
         stage('SAST - Semgrep') {
             steps {
                 sh '''
-                    pip install semgrep --break-system-packages || true
+                    pip install semgrep  || true
                     semgrep --config=p/owasp-top-ten --config=p/security-audit \
                         --json --output=semgrep-report.json . || true
                 '''
@@ -121,14 +124,46 @@ pipeline {
             }
         }
 
+        stage('Push Image to DockerHub') {
+            steps {
+                sh '''
+                    echo "$DOCKERHUB_CREDS_PSW" | docker login -u "$DOCKERHUB_CREDS_USR" --password-stdin
+                    docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
+                    docker push ${DOCKERHUB_REPO}:latest
+                '''
+            }
+        }
+        
         stage('Scan - Trivy (Image + FS + SBOM)') {
             steps {
                 sh '''
-                    . venv/bin/activate
-                    pip install trivy || true
-                    trivy fs --format json --output trivy-fs-report.json . || true
-                    trivy image --format json --output trivy-image-report.json ${DOCKERHUB_REPO}:${IMAGE_TAG} || true
-                    trivy sbom --format json --output trivy-sbom-report.json sbom.json || true
+                    mkdir -p .trivy-cache
+
+                    # Show Trivy version
+                    docker run --rm \
+                        -v "$PWD":/repo \
+                        -v "$PWD/.trivy-cache:/root/.cache/trivy" \
+                        aquasec/trivy:latest --version
+
+                    # Filesystem Scan
+                    docker run --rm \
+                        -v "$PWD":/repo \
+                        -v "$PWD/.trivy-cache:/root/.cache/trivy" \
+                        aquasec/trivy:latest \
+                        fs \
+                        --format json \
+                        --output /repo/trivy-fs-report.json \
+                        /repo || true
+
+                    # Docker Image Scan
+                    docker run --rm \
+                        -v "$PWD":/repo \
+                        -v "$PWD/.trivy-cache:/root/.cache/trivy" \
+                        aquasec/trivy:latest \
+                        image \
+                        --format json \
+                        --output /repo/trivy-image-report.json \
+                        ${DOCKERHUB_REPO}:${IMAGE_TAG} || true
                 '''
             }
             post {
@@ -138,24 +173,14 @@ pipeline {
             }
         }
 
-       stage('Push Image to DockerHub') {
-            steps {
-                sh '''
-                    echo "$DOCKERHUB_CREDS_PSW" | docker login -u "$DOCKERHUB_CREDS_USR" --password-stdin
-                    docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
-                    docker push ${DOCKERHUB_REPO}:latest
-                '''
-            }
-        }
-
         stage('Deploy to Staging (for DAST)') {
             steps {
                 sh '''
                     docker rm -f fastapi01-staging || true
-                    docker run -d --name fastapi01-staging -p 8000:8000 ${DOCKERHUB_REPO}:${IMAGE_TAG}
+                    docker run -d --name fastapi01-staging -p 8086:8000 ${DOCKERHUB_REPO}:${IMAGE_TAG}
 
                     for i in $(seq 1 20); do
-                        if curl -sf http://localhost:8000/docs > /dev/null 2>&1; then
+                        if curl -sf http://localhost:8086/docs > /dev/null 2>&1; then
                             echo "App is ready"
                             break
                         fi
@@ -169,7 +194,7 @@ pipeline {
         stage('DAST - OWASP ZAP') {
             steps {
                 sh '''
-                    docker run --rm --network host -v "$PWD":/zap/wrk/:rw \
+                    docker run --rm --user root --network host -v "$PWD":/zap/wrk/:rw \
                         zaproxy/zap-stable zap-baseline.py \
                         -t ${ZAP_TARGET_URL} \
                         -J zap-report.json -r zap-report.html || true
@@ -264,44 +289,57 @@ pipeline {
             }
         }
 
-        stage('CD - Update GitOps Repo for ArgoCD') {
+        stage('Update Manifest & Push to GitHub') {
             steps {
-                sshagent(credentials: ['github-ssh-key']) {
-                        // rm -rf ${GITOPS_DIR}
-                        // git clone ${GITOPS_REPO} ${GITOPS_DIR}
-                        // cd ${GITOPS_DIR}
-                    sh """
-                        # Update image tag inside the app's ConfigMap/deployment manifest
-                        # yq e -i '.data.IMAGE_TAG = "${IMAGE_TAG}"' k8s/analysis-api.yaml
-                        sed -i -E "s|(^[[:space:]]*image: )omarhussein2111/.*|\1${DOCKERHUB_REPO}:${IMAGE_TAG}|g" ${GITOPS_DIR}/analysis-api-deployment.yaml
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-creds',
+                    usernameVariable: 'GITHUB_USER',
+                    passwordVariable: 'GITHUB_TOKEN'
+                )]) {
+                    sh '''
+                        sed -i -E "s|(^[[:space:]]*image: )omarhussein2111/.*|\\1${DOCKERHUB_REPO}:${IMAGE_TAG}|g" k8s/analysis-api-deployment.yaml
 
                         git config user.email "omarhussein2111@gmail.com"
                         git config user.name "Eng-Omar-Hussein"
-                        git add ${GITOPS_DIR}/analysis-api-deployment.yaml
-                        git commit -m "ci: bump ${APP_NAME} image to ${IMAGE_TAG}" || echo "No changes to commit"
-                        git push origin HEAD:main
-                    """
+
+                        git add k8s/analysis-api-deployment.yaml
+
+                        if git diff --cached --quiet; then
+                            echo "No changes to commit."
+                            exit 0
+                        fi
+
+                        git commit -m "ci: bump analysis-api image to ${IMAGE_TAG}"
+
+                        git remote set-url origin https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/Eng-Omar-Hussein/static_analysis2.git
+
+                        git push origin HEAD:master
+                    '''
                 }
             }
         }
+
+        stage("Send Email") {
+            steps {
+                emailext(
+                    subject: "[CI Security] ${APP_NAME} build #${BUILD_NUMBER} - ${currentBuild.currentResult}",
+                    body: """
+                        Pipeline: ${JOB_NAME} #${BUILD_NUMBER}
+                        Image: ${DOCKERHUB_REPO}:${IMAGE_TAG}
+                        Status: ${currentBuild.currentResult}
+
+                        Reports: DefectDojo, Dependency-Track, and Jenkins artifacts.
+                        See: ${BUILD_URL}
+                    """,
+                    to: "${EMAIL_RECIPIENTS}",
+                    attachmentsPattern: 'semgrep-report.json,bandit-report.json,gitleaks-report.json,trivy-*-report.json,zap-report.html,sbom.json'
+                )
+            }
+        }
+
     }
 
     post {
-        success {
-            emailext(
-                subject: "[CI Security] ${APP_NAME} build #${BUILD_NUMBER} - ${currentBuild.currentResult}",
-                body: """
-                    Pipeline: ${JOB_NAME} #${BUILD_NUMBER}
-                    Image: ${DOCKERHUB_REPO}:${IMAGE_TAG}
-                    Status: ${currentBuild.currentResult}
-
-                    Reports: DefectDojo, Dependency-Track, and Jenkins artifacts.
-                    See: ${BUILD_URL}
-                """,
-                to: "${EMAIL_RECIPIENTS}",
-                attachmentsPattern: 'semgrep-report.json,bandit-report.json,gitleaks-report.json,trivy-*-report.json,zap-report.html,sbom.json'
-            )
-        }
         always {
             sh 'docker logout || true'
             cleanWs()

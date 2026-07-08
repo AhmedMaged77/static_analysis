@@ -9,7 +9,10 @@ import tempfile
 from pathlib import Path
 from typing import Optional
 
-import magic  # pip install python-magic
+try:
+    import magic  # pip install python-magic
+except Exception:
+    magic = None
 import yara  # pip install yara-python
 import clamd  # pip install clamd
 import exiftool  # pip install PyExifTool
@@ -61,6 +64,8 @@ def shannon_entropy(data: bytes) -> float:
 
 
 def detect_mime(file_path: str) -> list[str]:
+    if magic is None:
+        return []
     try:
         mime = magic.from_file(file_path, mime=True)
         return [mime] if mime else []

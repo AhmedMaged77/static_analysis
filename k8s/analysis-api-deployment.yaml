@@ -14,8 +14,8 @@ metadata:
   name: analysis-config
   namespace: analysis-api
 data:
-  Strelka_Dir: "./strelka-oneshot"
-  Strelka_Server: "http://strelka.sandbox.svc.cluster.local:5000"
+  Strelka_Dir: "./strelka-oneshot/strelka-oneshot"
+  Strelka_Server: "frontend.strelka.svc.cluster.local:57314"
   POSTGRES_DB: "analysis_db"
   POSTGRES_HOST: "postgres.analysis-api.svc.cluster.local"
   RABBITMQ_HOST: "rabbitmq.analysis-api.svc.cluster.local"
@@ -28,6 +28,7 @@ metadata:
   name: postgres-pvc
   namespace: analysis-api
 spec:
+  storageClassName: gp2
   accessModes:
     - ReadWriteOnce
   resources:
@@ -70,6 +71,7 @@ spec:
           volumeMounts:
             - name: postgres-data
               mountPath: /var/lib/postgresql/data
+              subPath: postgres-data
       volumes:
         - name: postgres-data
           persistentVolumeClaim:
@@ -158,7 +160,7 @@ spec:
     spec:
       containers:
         - name: orchestrator
-          image: omarhussein2111/analysis-api:7-b3aaf22
+          image: omarhussein2111/analysis-api:2-44403a0
           ports:
             - containerPort: 8000
           envFrom:
@@ -166,6 +168,7 @@ spec:
                 name: analysis-config
             - secretRef:
                 name: analysis-secrets
+
           resources:
             requests:
               memory: "128Mi"
@@ -173,7 +176,12 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
-
+          volumeMounts:
+            - name: uploads-volumes
+              mountPath: /app/uploads
+      volumes:
+        - name: uploads-volumes
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -181,6 +189,7 @@ metadata:
   name: orchestrator
   namespace: analysis-api
 spec:
+  type: LoadBalancer
   selector:
     app: orchestrator
   ports:
@@ -206,9 +215,9 @@ spec:
     spec:
       containers:
         - name: celery-worker
-          image: omarhussein2111/analysis-api:7-b3aaf22
+          image: omarhussein2111/analysis-api:2-44403a0
           command: ["celery"]
-          args: ["-A", "celery_app", "worker", "--loglevel=info"]
+          args: ["-A", "celery_app", "worker", "--loglevel=info"] 
           envFrom:
             - configMapRef:
                 name: analysis-config
@@ -221,3 +230,9 @@ spec:
             limits:
               memory: "1Gi"
               cpu: "1000m"
+          volumeMounts:
+            - name: uploads-volumes
+              mountPath: /app/uploads
+      volumes:
+        - name: uploads-volumes
+          emptyDir: {}
